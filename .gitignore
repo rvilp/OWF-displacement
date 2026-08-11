@@ -1,0 +1,31 @@
+# --- Manuscript and correspondence: NEVER commit -----------------------------
+# This repository is intended to be shared with reviewers. Manuscript drafts,
+# cover letters and editorial correspondence must stay out of it.
+*.docx
+*.doc
+*.odt
+*.pdf
+~$*
+rev*/
+
+# --- Large / derived model objects -------------------------------------------
+# Model fits and posterior objects are reproducible from the scripts and the
+# data in data/. They are cached locally but not versioned.
+outputs/*.rds
+*.RData
+*.Rdata
+
+# --- R session cruft ----------------------------------------------------------
+.Rhistory
+.Rapp.history
+.Rproj.user/
+.Renviron
+.Rprofile
+
+# --- OS cruft -----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Vendored packages --------------------------------------------------------
+inlabru/
+inlabru.zip
