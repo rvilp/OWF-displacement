@@ -137,12 +137,29 @@ interval.
 
 ---
 
-## Data availability and licence
+## Licence
 
-<!-- TODO before making the repository public:
-     - confirm that the survey data in data/ may be redistributed
-     - add a licence (e.g. MIT or Apache-2.0 for the code, CC-BY for the data)
-     - add the DOI once the paper is published -->
+| | |
+|---|---|
+| Code (`R/`), documentation, project files | [MIT](LICENSE) |
+| Data (`data/`) | [CC BY 4.0](data/LICENSE-DATA.md) |
+
+## Data availability
+
+The aerial survey counts are aggregated to the nodes of the spatial mesh and
+were first released with:
+
+> Vilela, R., Burger, C., Diederichs, A., Bachl, F.E., Szostek, L., Freund, A.,
+> Braasch, A., Bellebaum, J., Beckers, B., Piper, W. and Nehls, G. (2021).
+> Use of an INLA latent Gaussian modeling approach to assess bird population
+> changes due to the development of offshore wind farms.
+> *Frontiers in Marine Science*, 8, 701332.
+> <https://doi.org/10.3389/fmars.2021.701332>
+
+Please cite that paper alongside the present manuscript when using these data.
+Full provenance is in [`data/LICENSE-DATA.md`](data/LICENSE-DATA.md).
+
+<!-- TODO: add the DOI of the present paper once published. -->
 
 ## Contact
 
