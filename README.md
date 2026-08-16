@@ -11,26 +11,42 @@ Manuscript: JEMA-D-25-08275, *Journal of Environmental Management*.
 ## Contents
 
 ```
-R/joint_likelihood_before_after.R   Full analysis, Sections 0–12
-data/                               Input data (see below)
-outputs/                            All figures, tables and cached fits (created on run)
+R/joint_likelihood_analysis.R       Full analysis
+R/impact_distance_and_habitat_loss.R   The 2022 distance calculation, for provenance
+R/diagnose_*.R                      Verification scripts (see below)
+data/                               Input data
+outputs/                            Figures, tables and cached fits (created on run)
 ```
 
 ### Input data
 
-| File | Description |
+`data/diver_owf_data.RData` holds every input the analysis reads:
+
+| Object | Description |
 |---|---|
-| `ips_01_21_noFN10.rds` | Detection-corrected diver counts aggregated to a 5 km grid, spring 2001–2021, by year (`phase`) and survey method |
-| `mesh_5km.rds` | SPDE triangulation of the study domain (~5 km resolution) |
-| `farms18_spring_byyear_updt.rds` | OWF polygons with construction/operation dates and cluster labels |
-| `mask_zee_full.*` | German EEZ mask used to clip the prediction grid |
+| `counts_5km` | Detection-corrected diver counts aggregated to the nodes of a 5 km mesh, spring 2001–2021, by year (`phase`) and survey method |
+| `owf_polygons` | OWF footprints with construction/operation dates and cluster labels, repeated per year |
+| `prediction_pxl` | Prediction grid (150 × 150 at 2.26 × 2.08 km, 6089 cells) |
+| `prediction_mask` | Outline of the prediction area |
+| `hd_mask` | Diver main concentration area, BMU (2009) |
+| `spa_mask` | SPA Eastern German Bight |
+| `mesh_5km` | SPDE triangulation used for fitting |
+
+`data/pred_change_975.tif` is the change field of the previous version of the
+analysis, archived so that the comparison in the response to reviewers can be
+reproduced.
 
 All spatial data are in UTM zone 32N with **kilometre** units
-(`+proj=utm +zone=32 +datum=WGS84 +units=km +no_defs`).
+(`+proj=utm +zone=32 +datum=WGS84 +units=km +no_defs`). Coordinates are already
+in that system, so the CRS is assigned rather than transformed.
 
-`prediction_pixels.rds` (the original prediction grid) is not included; the
-script rebuilds an equivalent grid from the mesh with `fmesher::fm_pixels()`,
-clipped to the EEZ mask.
+### Verification scripts
+
+| Script | Question it answers |
+|---|---|
+| `diagnose_vs_original_tif.R` | Does the current measurement code reproduce the earlier result when applied to the earlier change field? |
+| `diagnose_distance_surfaces.R` | How much of the difference is `terra::distance` vs `distanceto::distance_raster`? |
+| `diagnose_inla_mode.R` | How much is INLA's change of default computational mode from `classic` to `compact`? |
 
 ---
 
@@ -53,13 +69,17 @@ install.packages("INLA",
 ## Running
 
 Open `gavia-owf-displacement.Rproj` (or `setwd()` to the repository root) and
-source `R/joint_likelihood_before_after.R`.
+source `R/joint_likelihood_analysis.R`.
 
-Sections 1–5 load and check the data and print diagnostics — run these first.
-Section 6 fits the models and takes hours; fits are cached under `outputs/`, so
-subsequent runs are fast. Set `REFRESH_FITS <- TRUE` to force a refit.
+The model fits take hours and are cached under `outputs/`; delete
+`outputs/fit_*.rds` and `outputs/change_fit.rds` to refit. Predictions are always
+recomputed, so a re-run after changing the prediction geometry cannot return a
+stale result.
 
-All posterior sampling is seeded (`SEED`), so results are reproducible.
+Posterior sampling is seeded through INLA (`seed = SEED` on `predict()` and
+`generate()`), not through `set.seed()`, which does not reach
+`inla.posterior.sample`. With a non-zero seed inlabru also forces
+single-threaded sampling, so results are deterministic.
 
 ---
 
@@ -82,41 +102,39 @@ visual surveys of the before period.
 
 ## Displacement distances
 
-Two distances are derived from the posterior of
-δ(s) = log₁₀ exp(spde_change(s)):
+The change field is summarised through the posterior probability of a decrease
+at each location, p(s) = P(δ(s) < 0), where δ(s) = log₁₀ exp(spde_change(s)).
+For a threshold *t*, the affected zone is A(t) = { s : p(s) ≥ t }, so that
 
-1. **95% significance contour** — boundary of the region where
-   `q0.975(δ(s)) < 0`, i.e. at least 97.5% posterior probability of a
-   decrease. A conservative lower bound on the extent of the effect.
-2. **Zero-effect contour** — boundary of the region where the change is
-   negative, i.e. the transition between negative and neutral/positive change.
-   A central estimate, comparable with displacement distances reported in
-   earlier studies.
+- *t* = 0.975 is the 95% significance contour, i.e. the upper limit of the 95%
+  credible interval lies below zero — a conservative lower bound on the extent
+  of the effect;
+- *t* = 0.50 is the zero contour.
 
-Measurement procedure (Section 7 of the script):
+Measurement:
 
 - OWFs assigned to the same cluster are **dissolved** into a single polygon, so
   overlapping influence zones are handled by construction.
-- The affected region is restricted to the **connected component** adjacent to
-  that cluster, so distances are never measured against an unrelated effect
-  zone elsewhere in the domain.
-- Measurement points are placed every 0.5 km along the dissolved cluster
-  outline; each distance is the shortest Euclidean distance from that point to
-  the contour.
-- Points that do not lie inside the affected region are recorded as unaffected
-  and excluded from the mean; their proportion is reported, which makes the
-  asymmetry of the effect explicit.
+- The affected zone is restricted to the **connected component adjacent to that
+  cluster**, so distances are never measured against an unrelated area of change
+  elsewhere in the domain.
+- A distance surface is computed at 1 km resolution giving, for every cell, its
+  shortest Euclidean distance to the nearest OWF of the cluster. The reported
+  distances are the values of that surface **along the boundary of the affected
+  component**: each measurement is one point of the contour, valued by how far it
+  lies from the wind farm.
+- Distances are summarised by their mean and standard deviation; the full
+  distribution is the violin plot of Fig. 6.
 
-**Uncertainty (Section 8).** For the zero-effect contour the entire measurement
-is repeated inside each posterior draw, so the credible interval comes from the
-posterior distribution of the distance rather than from a standard error over
-measurement points along a single contour (those points are 0.5 km apart on a
-smooth field and are not independent). The North-vs-South comparison is the
-paired difference within each draw, reported as P(d_north > d_south).
+The extent is reported across the full range of thresholds rather than at a
+single cut, together with the proportion of each contour that runs along the
+boundary of the prediction area — a zone that does not close inside the study
+area is not a measurement of effect range.
 
-The 95% significance contour is a property of the posterior, not of a single
-draw, and so has no per-draw analogue; it is reported without a resampled
-interval.
+A radial summary of the change field is also produced. It is **not** an effect
+range: total abundance in the region was conserved, so the distance at which the
+radial average returns to zero marks where local loss ceases to outweigh
+redistribution gains, and depends on where suitable receiving habitat lies.
 
 ---
 
@@ -124,16 +142,19 @@ interval.
 
 | File | Content |
 |---|---|
-| `pred_0108.png`, `pred_1721.png` | Posterior mean density, both periods, common scale |
-| `int_change_0121.png` | Log₁₀ change with significance and zero contours |
-| `fig6_displacement_distances_2026.png` | Distances to both contours, by cluster |
-| `fig6b_contour_geometry_2026.png` | Measurement geometry |
-| `fig7_zero_contour_posterior_2026.png` | Posterior of the zero-contour distance |
-| `displacement_distances_*.csv` | Per-point distances and summaries |
+| `fig3_density_2001_2008.png`, `fig4_density_2017_2021.png` | Posterior mean density, both periods, common scale |
+| `fig5_change.png` | Log₁₀ change with evidence isolines for decrease and increase |
+| `fig6_effect_distance.png` | Effect distance by cluster |
+| `fig7_zero_contour_posterior.png` | Posterior of the zero-contour distance |
+| `fig8_distance_by_threshold.png` | Extent against evidential requirement |
+| `fig9_radial_effect_profile.png` | Radial summary of the change field |
+| `effect_distances_*.csv`, `effect_distance_tests.csv` | Distances, summaries and the cluster comparison |
+| `effect_distance_by_threshold.csv` | Extent and area at each threshold |
 | `zero_contour_posterior_*.csv` | Posterior draws, summary and North–South contrast |
-| `displaced_individuals_2026.csv` | Abundance change within each affected zone |
-| `grid_resolution_sensitivity_2026.csv` | Sensitivity to prediction grid resolution |
-| `sessionInfo_2026.txt` | Package versions for the reproducibility statement |
+| `effect_range_summary.csv`, `radial_profile.csv` | Radial summary |
+| `displaced_individuals.csv` | Abundance change within each affected zone |
+| `comparison_vs_original_tif.csv`, `distance_surface_comparison.csv`, `inla_mode_comparison.csv` | Verification against the previous version |
+| `sessionInfo.txt` | Package versions for the reproducibility statement |
 
 ---
 
