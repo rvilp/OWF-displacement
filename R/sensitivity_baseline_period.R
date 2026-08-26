@@ -1,14 +1,10 @@
 ###############################################################################
 #  Sensitivity of the result to the composition of the baseline period
 #
-#  Reviewer #3, point 1: refit the model on modified subsets of the before
-#  period and report how much the result moves.
-#
-#  Our position is unchanged: varying the baseline changes the data
-#  realisation rather than the model, so what this measures is interannual
-#  variability in diver distribution, not sensitivity of the joint-likelihood
-#  formulation. It is nonetheless cheap to run and informative either way, so
-#  it is reported.
+#  Varying the baseline changes the data realisation rather than the model, 
+#  so what this measures is interannualvariability in diver distribution, 
+#  not sensitivity of the joint-likelihood formulation. 
+#  It is nonetheless cheap to run and informative either way, so it is reported.
 #
 #  The baseline holds six spring seasons: 2001-2005 and 2008 (no data for
 #  2006 or 2007). Effort is very unevenly spread across them:
@@ -25,13 +21,6 @@
 #  different sampling seed. It changes no data at all, so the spread between
 #  it and the reference is the Monte Carlo noise of the measurement. A
 #  variant that moves the estimate by less than that has not moved it.
-#
-#  COST. One full refit of the joint model per variant. The mesh has 1000
-#  nodes, so the joint latent field is about 2000-dimensional with a sparse
-#  precision, over 2666 observations; INLA fits this in seconds. Expect the
-#  whole series in minutes rather than hours. Fits are still cached under
-#  outputs/sens_<tag>.rds so the script can be stopped and resumed, and each
-#  variant prints its own fitting time.
 #
 #      source("R/sensitivity_baseline_period.R")
 ###############################################################################

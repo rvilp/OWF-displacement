@@ -69,23 +69,8 @@ bb <- st_bbox(pxl)
 xlim <- c(bb[["xmin"]] - MAP_MARGIN_KM, bb[["xmax"]] + MAP_MARGIN_KM)
 ylim <- c(bb[["ymin"]] - MAP_MARGIN_KM, bb[["ymax"]] + MAP_MARGIN_KM)
 
-## Coastline if download_emodnet_covariates.R has been run, otherwise omitted
-## rather than substituted by something that is not a coastline.
-## The coastline is an optional decoration and lives with the other
-## environmental layers outside the repository, so its absence is not an
-## error: the figure is simply drawn without it.
-coast <- NULL
-cf <- try(local({ source("R/covariate_paths.R", local = TRUE)
-                  COV_FILES[["coastline"]] }), silent = TRUE)
-if (!inherits(cf, "try-error") && file.exists(cf)) {
-  coast <- st_read(cf, quiet = TRUE); cat("coastline included\n")
-} else {
-  cat("no coastline layer; drawing without it\n")
-}
 
 p <- ggplot() +
-  { if (!is.null(coast))
-      geom_sf(data = coast, colour = "grey45", linewidth = 0.25) } +
   geom_sf(data = pred_outline, fill = NA, colour = "grey55", linewidth = 0.25) +
   geom_sf(data = conc_area,    fill = NA, colour = "grey35", linewidth = 0.35) +
   geom_sf(data = spa_area,     fill = NA, colour = "#1B7837", linewidth = 0.4) +

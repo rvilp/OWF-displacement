@@ -14,7 +14,7 @@
 #  fmesher 0.7.0, sf 1.1-0, terra 1.8-93. The full session is written to
 #  outputs/sessionInfo.txt at the end of the run.
 #
-#  Model fits are cached in outputs/ because they take hours. Predictions are
+#  Model fits are cached in outputs/ because they take longer. Predictions are
 #  always recomputed - they take minutes and depend on the prediction grid.
 #  The cache file names carry MODEL_TAG, so a change to the model formula
 #  cannot pick up an old fit; to force a refit anyway, delete
@@ -296,8 +296,7 @@ summary(change_fit)
 ## it. With seed != 0 inlabru also forces num.threads = "1:1:1", which makes
 ## the draws deterministic at the cost of running single-threaded.
 ##
-## Without this, repeated runs of this script differ: two runs gave a mean
-## effect distance of 7.136 and 7.090 km for the northern cluster.
+## Without this, repeated runs of this script differ.
 
 ## Technique is carried entirely by the exposure, so nothing has to be held
 ## fixed here: both periods are already on the HiDef scale, i.e. these are
@@ -423,8 +422,7 @@ df_change$p_decrease <- p_decrease
 df_change$p_increase <- 1 - p_decrease
 
 ## Labelled as probabilities, NOT as percentages. "95%" would collide with
-## the 95% credible interval used to define the 0.975 zone, which is the
-## single most confusing thing a reader can meet in this analysis.
+## the 95% credible interval used to define the 0.975 zone.
 ## Written out explicitly rather than with format(): format() applies a common
 ## width to the whole vector and would render 0.95 as "0.950", and
 ## as.character() would render 0.90 as "0.9". Neither matches Table 2.
@@ -434,13 +432,7 @@ stopifnot(length(thr_labels) == length(MAP_THRESHOLDS))
 ## Isoline colours, dark to light with the threshold.
 ##
 ## The fill is a red-blue diverging scale, the OWF outlines are black, the
-## concentration area grey and the SPA green, which leaves purple as the only
-## hue that is not already carrying meaning. Dark to light also puts the
-## strongest line where the fill is most saturated: 0.975 is the innermost
-## contour, sitting on deep red, while 0.85 is the outermost and sits on
-## near-white. A reversed viridis ramp was used before and gave 0.975 a yellow
-## line on a red background - the least legible line was the one the paper
-## actually reports.
+## concentration area grey and the SPA green. 
 THRESHOLD_COLOURS <- c("#3F007D", "#6A51A3", "#9E7FD0", "#C6A9E0")
 
 p_change <- ggplot() +
@@ -493,11 +485,7 @@ ggsave(p_out("fig5_change.png"), p_change,
 #  read its values along the boundary of the affected zone. Each measurement
 #  is therefore one cell of the contour, valued by how far that point of the
 #  contour lies from the wind farm - the outward extent of the effect.
-#
-#  Two changes from the original. The affected component is selected
-#  automatically as the one adjacent to the cluster, instead of the
-#  hand-picked p[6] / p[3]; and the same routine is applied to the
-#  zero contour as well as the high-evidence zone.
+
 
 ## Rasterise one column of an sf point grid.
 sf_to_rast <- function(x, column) {
@@ -508,8 +496,7 @@ sf_to_rast <- function(x, column) {
 
 ## The affected zone adjacent to a cluster: cells where the criterion is
 ## negative, dissolved, split into connected components, keeping the
-## component(s) that touch the cluster. This replaces the hand-picked
-## p[6] / p[3] of the original script.
+## component(s) that touch the cluster. 
 affected_region <- function(r, owf_u) {
   r_neg <- terra::classify(r, matrix(c(-Inf, 0, 1, 0, Inf, NA),
                                      ncol = 3, byrow = TRUE))
@@ -526,8 +513,7 @@ affected_region <- function(r, owf_u) {
 ##
 ## UNITS. terra::distance() returns metres even when the CRS is in
 ## kilometres, so the result is divided by 1000 to keep every distance in
-## this script in km. Sanity check: the northern cluster should come out at
-## roughly 7.5 km for the high-evidence zone.
+## this script in km. 
 make_dist_raster <- function(cluster_owf, ext_sf, cellsize = DIST_CELL_KM) {
   e <- terra::ext(terra::vect(st_geometry(ext_sf)))
   r <- terra::rast(e, resolution = cellsize, crs = st_crs(ext_sf)$wkt, vals = 0)
@@ -787,9 +773,7 @@ ggsave(p_out("fig7_zero_contour_posterior.png"), p_post,
 # 8. Effect distance as a function of the evidence threshold
 # =============================================================================
 #
-#  Reviewer #3 asked for a central estimate to complement the conservative
-#  95% significance bound, and proposed the zero contour. With posterior
-#  samples the two are the endpoints of one continuum: for each cell,
+#  For each cell,
 #
 #      p(s) = P( delta(s) < 0 )
 #
@@ -1052,10 +1036,7 @@ ggsave(p_out("fig9_radial_effect_profile.png"), p_radial,
 #  over the affected zone. This is what the Methods section describes and
 #  corresponds to the `diff <- aft - bef` / cellStats(sum) route in
 #  impact_distance_and_habitat_loss.R.
-#
-#  Note that the other route in that script, sum(exp(pred_change_975)), does
-#  not give individuals: the raster is on a log10 scale, so the multiplicative
-#  change would be 10^x, and it is a ratio in any case, not a count.
+
 
 displaced_individuals <- function(thr, owf_u, label, criterion) {
   A_c <- affected_region(zone_raster(thr), owf_u)

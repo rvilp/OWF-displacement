@@ -5,12 +5,8 @@
 #  shift tracks the survey effort removed NEAR THE CLUSTER CONCERNED much
 #  better than the total effort removed (south r = 0.85 against r = 0.45).
 #  That points at spatial coverage rather than interannual variability: the
-#  baseline is very unevenly covered, with 2001 and 2002 entirely northern,
+#  baseline is unevenly covered, with 2001 and 2002 entirely northern,
 #  2005 entirely non-northern, and only 2004 and 2008 covering the whole area.
-#
-#  If that reading is right, the after period should behave the same way,
-#  because nothing in the argument is specific to the baseline. This script
-#  runs the identical test there.
 #
 #  After-period effort by latitude band (km2):
 #
@@ -21,17 +17,7 @@
 #      2020     664    1573    470    2708
 #      2021     427     749      0    1177
 #
-#  Two predictions worth stating before looking:
-#    - dropping 2020 and 2021 together removes about 8% of after-period
-#      effort near either cluster and should move nothing. If it does, the
-#      estimate is unstable for reasons unrelated to coverage.
-#    - dropping 2018 should hit the south hardest (48% of its after-period
-#      effort) and dropping 2017 or 2018 should hit the north about equally.
-#
-#  N_SAMPLES_DIST must match whatever the main script uses. At 1000 draws the
-#  measurement carries about 0.3 km of Monte Carlo noise, which is the same
-#  size as some of the shifts of interest; raise it before drawing
-#  conclusions from small differences.
+#  N_SAMPLES_DIST must match whatever the main script uses. 
 #
 #      source("R/sensitivity_after_period.R")
 ###############################################################################

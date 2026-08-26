@@ -1,20 +1,14 @@
 ###############################################################################
 #  Predictive validation of the joint-likelihood model actually fitted here
-#
-#  The manuscript's validation section rests on Vilela et al. (2021), which
-#  validated the same framework at annual resolution on the same survey
-#  programme. That remains relevant, but it does not describe the behaviour
-#  of the five-year joint-likelihood formulation used in this paper.
-#
-#  The fit already computes everything needed for that, and discards it:
+
+#  The fit already computes everything needed:
 #
 #      control.compute = list(dic = TRUE, cpo = TRUE, waic = TRUE)
 #
 #  CPO is leave-one-out predictive: cpo_i = p(y_i | y_-i). PIT is the
 #  corresponding probability integral transform, pit_i = P(Y_i <= y_i | y_-i).
 #  Both are per-observation leave-one-out quantities, so this is a
-#  cross-validation of THIS model on THESE data, not a reference to earlier
-#  work.
+#  cross-validation of THIS model on THESE data.
 #
 #  DISCRETENESS. For a continuous response a well calibrated model gives
 #  uniform PIT values. For counts it does not: 39.5% of the observations here
@@ -30,8 +24,6 @@
 #      u_i = (pit_i - cpo_i) + v_i * cpo_i,     v_i ~ Uniform(0, 1)
 #
 #  Both are reported below; the randomised version is the one to interpret.
-#
-#  Nothing is refitted. Reads the cached fit and takes seconds.
 #
 #      source("R/model_validation.R")
 ###############################################################################

@@ -12,26 +12,22 @@
 #
 #    After period: not monotone. Removing 2020-2021, which is 0.5% of the
 #      northern and 2.4% of the southern local effort, moves the estimate by
-#      0.2 km. But removing 2018 RAISES the southern estimate by 2.73 km
-#      while shrinking the zone from 870 to 630 km2 - 2018 carries the
-#      near-field southern signal, and without it only a peripheral patch
-#      still clears the threshold. Reducing the data can therefore move the
-#      estimate in either direction.
+#      0.2 km. But removing 2018 raises the southern estimate by 2.73 km
+#      since without 2018 only a peripheral patch still clears the threshold. 
+#      Reducing the data can therefore move the estimate in either direction.
 #
-#  So the mean distance is not a stable summary. What did survive every one
-#  of the sixteen variants is that a zone of decline adjacent to BOTH
-#  clusters was always detected. This script measures that directly.
-#
+#  So the mean distance responds to how much data remain in each period, and
+#  in the after period it does so non-monotonically. In every one of the 
+#  sixteen variants survives a zone of decline adjacent to both
+#  clusters that was always detected. This script measures that directly.
 #  Two additions over the previous scripts:
 #
-#    1. Both periods vary together, in a 3 x 3 factorial, so the result
-#       cannot be dismissed as having varied one factor at a time.
+#    1. Both periods vary together, in a 3 x 3 factorial.
 #
 #    2. For each cell of the factorial the affected zone is compared with the
 #       reference zone by JACCARD OVERLAP, |A n B| / |A u B|. That answers
 #       "is the effect in the same place?" rather than "is the number the
-#       same?", which is the question the extent series has already shown to
-#       be unstable. Also reported: what fraction of the reference zone is
+#       same?". Also reported: what fraction of the reference zone is
 #       recovered, and the distance between the two zone centroids.
 #
 #  Nine fits of a few seconds each, cached under outputs/sens_both_*.rds.
