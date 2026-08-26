@@ -11,21 +11,55 @@ Manuscript: JEMA-D-25-08275, *Journal of Environmental Management*.
 ## Contents
 
 ```
-R/joint_likelihood_analysis.R          Full analysis: model, figures, distances
-R/model_validation.R                   DIC, WAIC, CPO and randomised PIT
-R/sensitivity_baseline_period.R        Appendix A.3
-R/sensitivity_baseline_effort_control.R  Appendix A.4
-R/sensitivity_after_period.R           Appendix A.5
-R/sensitivity_both_periods.R           Appendix A.6 and A.7
-R/fig_method_schematic.R               Manuscript Fig. 3
-R/fig_survey_effort.R                  Appendix Fig. A.1
-R/diagnose_*.R                         Verification scripts (see below)
-data/                                  Input data
-outputs/                               Figures, tables and cached fits (created on run)
+R/          Analysis scripts, listed by destination below
+data/       Input data
+outputs/    Figures, tables and cached fits (created on run)
 ```
 
 Run `joint_likelihood_analysis.R` first: it writes the cached model fits that
-the validation and sensitivity scripts read.
+every other script reads.
+
+Note that the density figures are numbered from 3 in `outputs/` and from 4 in
+the manuscript, because the schematic was added later as Fig. 3. The table
+below gives the correspondence.
+
+### Manuscript
+
+| Script | Produces | Appears as |
+|---|---|---|
+| `R/fig_method_schematic.R` | `figS_method_schematic.png` | Fig. 3 |
+| `R/joint_likelihood_analysis.R` | `fig3_density_2001_2008.png` | Fig. 4 |
+| | `fig4_density_2017_2021.png` | Fig. 5 |
+| | `fig5_change.png` | Fig. 6 |
+| | `fig6_effect_distance.png` | Fig. 7 |
+| | `effect_distance_by_threshold.csv` | Table 1 |
+| | `effect_distances_summary.csv` | Results §3.4, displacement distances |
+| | `displaced_individuals.csv` | Results §3.4, change in abundance |
+| | `detection_offsets_applied.csv` | Methods §2.3, detection rates |
+| `R/model_validation.R` | `model_validation.csv`, `figS_pit_histogram.png` | Results, model diagnostics |
+
+### Appendix A
+
+| Script | Produces | Appears as |
+|---|---|---|
+| `R/fig_survey_effort.R` | `figS_survey_effort.png` | Fig. A.1 |
+| `R/sensitivity_baseline_period.R` | `sensitivity_baseline_summary.csv`, `figS_baseline_sensitivity.png` | A.2 (noise floor), A.3, Table A.1, Fig. A.2 |
+| `R/sensitivity_baseline_effort_control.R` | `sensitivity_effort_vs_years.csv`, `figS_effort_control.png` | A.4, Table A.2, Fig. A.3 |
+| `R/sensitivity_after_period.R` | `sensitivity_after_summary.csv` | A.2 (noise floor), A.5, Table A.3 |
+| `R/sensitivity_both_periods.R` | `sensitivity_both_periods.csv`, `figS_both_periods_sensitivity.png` | A.6, A.7, Tables A.4–A.5, Fig. A.4 |
+
+The Monte Carlo noise floor in A.2 has no script of its own: it comes from the
+control rows, in which the full data are refitted under a different sampling
+seed, inside the baseline and after-period series.
+
+### Verification, cited in the response to reviewers
+
+| Script | Question it answers |
+|---|---|
+| `R/diagnose_vs_original_tif.R` | Does the current measurement code reproduce the earlier result when applied to the earlier change field? |
+| `R/diagnose_distance_surfaces.R` | How much of the difference is `terra::distance` versus `distanceto::distance_raster`? |
+| `R/diagnose_inla_mode.R` | How much is INLA's change of default computational mode from `classic` to `compact`? |
+| `R/diagnose_sampling_reproducibility.R` | Is the posterior sampling deterministic once the seed is fixed? |
 
 ### Input data
 
@@ -48,14 +82,6 @@ reproduced.
 All spatial data are in UTM zone 32N with **kilometre** units
 (`+proj=utm +zone=32 +datum=WGS84 +units=km +no_defs`). Coordinates are already
 in that system, so the CRS is assigned rather than transformed.
-
-### Verification scripts
-
-| Script | Question it answers |
-|---|---|
-| `diagnose_vs_original_tif.R` | Does the current measurement code reproduce the earlier result when applied to the earlier change field? |
-| `diagnose_distance_surfaces.R` | How much of the difference is `terra::distance` vs `distanceto::distance_raster`? |
-| `diagnose_inla_mode.R` | How much is INLA's change of default computational mode from `classic` to `compact`? |
 
 ---
 
