@@ -246,8 +246,9 @@ redistribution gains, and depends on where suitable receiving habitat lies.
 
 ## Data availability
 
-The aerial survey counts are aggregated to the nodes of the spatial mesh and
-were first released with:
+The aerial survey counts are aggregated to the nodes of the spatial mesh. The
+spring 2001–2018 records were first released with the paper below; the spring
+2019–2021 records are released here for the first time, under the same licence.
 
 > Vilela, R., Burger, C., Diederichs, A., Bachl, F.E., Szostek, L., Freund, A.,
 > Braasch, A., Bellebaum, J., Beckers, B., Piper, W. and Nehls, G. (2021).
