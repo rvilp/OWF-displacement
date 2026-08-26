@@ -4,11 +4,12 @@
 #
 #  The one-period-at-a-time tests established two things.
 #
-#    Baseline: every variant lowers the estimate, and the size of the shift
-#      tracks the survey effort removed near the cluster concerned. Removing
-#      whole years is systematically GENTLER than removing the same effort at
-#      random, so what drives it is how much evidence remains, not which
-#      years are in.
+#    Baseline: all variants but one lower the estimate, and the size of the
+#      shift tracks the survey effort removed near the cluster concerned. The
+#      exception is the southern cluster with 2003 excluded, which rises by
+#      0.50 km. Removing whole years is systematically GENTLER than removing
+#      the same effort at random, so what drives it is how much evidence
+#      remains, not which years are in.
 #
 #    After period: not monotone. Removing 2020-2021, which is 0.5% of the
 #      northern and 2.4% of the southern local effort, moves the estimate by
@@ -17,9 +18,9 @@
 #      Reducing the data can therefore move the estimate in either direction.
 #
 #  So the mean distance responds to how much data remain in each period, and
-#  in the after period it does so non-monotonically. In every one of the 
-#  sixteen variants survives a zone of decline adjacent to both
-#  clusters that was always detected. This script measures that directly.
+#  in the after period it does so non-monotonically. A zone of decline adjacent 
+#  to both clusters was detected in every one of the sixteen variants. 
+#  This script measures that directly.
 #  Two additions over the previous scripts:
 #
 #    1. Both periods vary together, in a 3 x 3 factorial.
