@@ -10,9 +10,15 @@
 #  joint_likelihood_before_after.R documents the port from the 2022 code and
 #  the reasoning behind each change; keep it as the reference.
 #
+#  Reported results were produced with R 4.5.2, INLA 25.10.19, inlabru 2.13.0,
+#  fmesher 0.7.0, sf 1.1-0, terra 1.8-93. The full session is written to
+#  outputs/sessionInfo.txt at the end of the run.
+#
 #  Model fits are cached in outputs/ because they take hours. Predictions are
 #  always recomputed - they take minutes and depend on the prediction grid.
-#  To refit, delete outputs/fit_*.rds and outputs/change_fit.rds.
+#  The cache file names carry MODEL_TAG, so a change to the model formula
+#  cannot pick up an old fit; to force a refit anyway, delete
+#  outputs/fit_*_<tag>.rds and outputs/change_fit_<tag>.rds.
 ###############################################################################
 
 # =============================================================================
@@ -44,16 +50,55 @@ main_crs <- st_crs("+proj=utm +zone=32 +datum=WGS84 +units=km +no_defs")
 BEFORE_PHASE_MAX <- 8
 AFTER_PHASE_MIN  <- 17
 
-## Detection correction for the conventional visual surveys of the before
-## period: effective effort is reduced by ~12% (mean detection ~0.88).
-VISUAL_DETECTION_CORRECTION <- 1.136364
+## ---------------------------------------------------------------------------
+## Detection correction by survey technique
+##
+## Every observation's exposure is effort x the detection rate of the
+## technique that produced it, so that all techniques are placed on a common
+## scale before the periods are compared. HiDef is the reference: it is the
+## technique for which a 100% detection rate has been established.
+##
+## The values are the medians of Table A-1 of Vilela et al. (2021), which
+## reports the technique effects on the LOG scale relative to HiDef:
+##
+##       technique   log     SD     Q0.025   Q0.975     exp(log)
+##       DAISI      -0.10   0.08    -0.26     0.06        0.905
+##       APEM       -0.40   0.21    -0.82     0.01        0.670
+##       VISUAL     -0.22   0.05    -0.31    -0.13        0.803
+##
+## The visual figure is the residual technique effect that remains AFTER the
+## distance-sampling correction, which is already applied in NHAT.
+##
+## These enter as a KNOWN OFFSET rather than as a fitted coefficient. A
+## fitted technique term is not identifiable in this design: the after period
+## aggregates five years with no temporal term, and the techniques are
+## segregated in both time and space. APEM and the visual surveys were flown
+## only in 2017-2018; DAISI covers the north (y >= 5996) and the visual
+## surveys the south (y <= 5983), so the two never sample the same mesh node;
+## only 14 of APEM's 130 observations fall on a node-year that HiDef also
+## covered. Fitting the term returns technique confounded with year and
+## region - it reverses the sign of DAISI and APEM relative to the values
+## above. Vilela et al. (2021) estimated these effects in a year-by-year
+## spatiotemporal model, where technique is separated from when and where it
+## was flown, so the estimate is taken from there.
+DETECTION <- c(HiDef        = 1,
+               DAISI        = exp(-0.10),
+               APEM         = exp(-0.40),
+               conventional = exp(-0.22))
+## ---------------------------------------------------------------------------
 
 ## SPDE PC priors
 PRIOR_SIGMA <- c(0.2, 0.01)   # P(sigma > 0.2) = 0.01
 PRIOR_RANGE <- c(15, NA)      # median range 15 km
 
+## Tag written into the cached fit names. Bump it whenever the model changes,
+## so that an old cache can never be picked up silently.
+##   m2  fitted technique indicators in the after period
+##   m3  technique as a known detection offset in both periods
+MODEL_TAG <- "m3"
+
 N_SAMPLES_MAP  <- 500   # posterior samples for the summary maps
-N_SAMPLES_DIST <- 1000  # posterior samples for the distance posterior
+N_SAMPLES_DIST <- 10000  # posterior samples for the distance posterior
 SEED <- 20260811L  # integer: passed to INLA's sampler, not to set.seed()
 
 ## OWF clusters, matched against farms$cluster. The southern cluster is
@@ -125,10 +170,39 @@ dat <- countdata %>%
   filter(!is.na(area), !is.na(NHAT), area > 0) %>%
   mutate(NHAT = round(NHAT))
 
+## Detection rate of the technique that produced each observation. Anything
+## not listed in DETECTION is an error rather than a silent NA in E, which
+## would propagate into the fit unnoticed.
+dat$method_chr <- as.character(dat$method)
+unknown <- setdiff(unique(dat$method_chr), names(DETECTION))
+if (length(unknown)) {
+  stop("no detection rate for technique(s): ", paste(unknown, collapse = ", "),
+       "\nAdd them to DETECTION in the configuration block.", call. = FALSE)
+}
+dat$det <- unname(DETECTION[dat$method_chr])
+
+## Effective effort: area actually searched, scaled by how much of what was
+## there the technique would have seen.
+dat$E_eff <- dat$area * dat$det
+
 before <- dat %>% filter(phase <= BEFORE_PHASE_MAX)
 after  <- dat %>% filter(phase >= AFTER_PHASE_MIN)
 
 message("before: ", nrow(before), " rows | after: ", nrow(after), " rows")
+message("methods before: ", paste(sort(unique(before$method_chr)), collapse = ", "))
+message("methods after : ", paste(sort(unique(after$method_chr)),  collapse = ", "))
+
+## Effort by technique and period, at the detection rate applied to each.
+tech_applied <- dat %>%
+  st_drop_geometry() %>%
+  mutate(period = ifelse(phase <= BEFORE_PHASE_MAX, "before",
+                  ifelse(phase >= AFTER_PHASE_MIN,  "after", "excluded"))) %>%
+  filter(period != "excluded") %>%
+  group_by(period, technique = method_chr, detection = det) %>%
+  summarise(n = n(), effort_km2 = sum(area), .groups = "drop") %>%
+  arrange(desc(period), technique)
+print(as.data.frame(tech_applied), digits = 4, row.names = FALSE)
+write.csv(tech_applied, p_out("detection_offsets_applied.csv"), row.names = FALSE)
 
 ## OWF footprints: dissolve the by-year repetitions into one polygon per farm.
 owf <- farms %>%
@@ -157,6 +231,9 @@ inla_opts <- list(
                            quantiles = c(0.025, 0.25, 0.5, 0.75, 0.975))
 )
 
+## Survey technique does not appear in any linear predictor: it is carried by
+## the exposure E, as a known detection offset (see DETECTION above).
+
 ## Fits are cached; delete the file to refit.
 fit_cached <- function(file, expr) {
   if (file.exists(file)) {
@@ -170,18 +247,19 @@ fit_cached <- function(file, expr) {
 
 # --- 3a. Separate period fits, for the density maps --------------------------
 
-cmp_single <- ~ space_spde(geometry, model = matern) + Intercept(1)
+cmp_before <- ~ space_spde(geometry, model = matern) + Intercept(1)
+cmp_after  <- ~ space_spde(geometry, model = matern) + Intercept(1)
 
-fit_b <- fit_cached(p_out("fit_before.rds"), bru(
-  cmp_single,
+fit_b <- fit_cached(p_out(paste0("fit_before_", MODEL_TAG, ".rds")), bru(
+  cmp_before,
   bru_obs("nbinomial", formula = NHAT ~ space_spde + Intercept,
-          data = before, E = before$area / VISUAL_DETECTION_CORRECTION),
+          data = before, E = before$E_eff),
   options = inla_opts))
 
-fit_a <- fit_cached(p_out("fit_after.rds"), bru(
-  cmp_single,
+fit_a <- fit_cached(p_out(paste0("fit_after_", MODEL_TAG, ".rds")), bru(
+  cmp_after,
   bru_obs("nbinomial", formula = NHAT ~ space_spde + Intercept,
-          data = after, E = after$area),
+          data = after, E = after$E_eff),
   options = inla_opts))
 
 # --- 3b. Joint-likelihood change model ---------------------------------------
@@ -193,16 +271,16 @@ cmp_joint <- ~
   Intercept(1) +
   Intercept_after(1)
 
-change_fit <- fit_cached(p_out("change_fit.rds"), bru(
+change_fit <- fit_cached(p_out(paste0("change_fit_", MODEL_TAG, ".rds")), bru(
   cmp_joint,
   bru_obs("nbinomial",
           data = before,
           formula = NHAT ~ spde_before + Intercept,
-          E = before$area / VISUAL_DETECTION_CORRECTION),
+          E = before$E_eff),
   bru_obs("nbinomial",
           data = after,
           formula = NHAT ~ spde_before + spde_change + Intercept_after,
-          E = after$area),
+          E = after$E_eff),
   options = c(inla_opts, list(bru_max_iter = 1))))
 
 summary(change_fit)
@@ -221,6 +299,9 @@ summary(change_fit)
 ## Without this, repeated runs of this script differ: two runs gave a mean
 ## effect distance of 7.136 and 7.090 km for the northern cluster.
 
+## Technique is carried entirely by the exposure, so nothing has to be held
+## fixed here: both periods are already on the HiDef scale, i.e. these are
+## densities as a technique with 100% detection would have recorded them.
 dens_before <- predict(fit_b, pxl, ~ exp(space_spde + Intercept),
                        n.samples = N_SAMPLES_MAP, seed = SEED)
 dens_after  <- predict(fit_a, pxl, ~ exp(space_spde + Intercept),
@@ -260,7 +341,10 @@ draw_raster <- function(v) {
 zone_raster <- function(thr) draw_raster(thr - p_decrease)
 
 ## The two thresholds that are reported individually.
-THR_SIGNIF <- 0.975   # 95% significance contour, as in Fig. 6
+CRIT_HIGH <- "High-evidence zone (P >= 0.975)"
+CRIT_ZERO <- "Zero contour (P = 0.50)"
+
+THR_SIGNIF <- 0.975   # high-evidence zone; equals a 95% CI entirely below 0
 THR_ZERO   <- 0.50    # zero-effect contour
 
 
@@ -289,27 +373,33 @@ coord_map <- function() {
 reference_layers <- function() {
   list(
     geom_sf(data = spa_area,     fill = NA, colour = "green4", linewidth = 0.6),
-    geom_sf(data = conc_area,    fill = NA, colour = "black",  linewidth = 0.9),
+    geom_sf(data = conc_area,    fill = NA, colour = "grey60",  linewidth = 0.6),
     geom_sf(data = pred_outline, fill = NA, colour = "grey40", linewidth = 0.25)
   )
 }
 
 dens_limits <- range(c(dens_before$mean, dens_after$mean), na.rm = TRUE)
 
-density_map <- function(df, title, farm_lty) {
-  ggplot() +
-    geom_raster(data = df, aes(x = x, y = y, fill = mean)) +
-    scale_fill_viridis(option = "magma",
-                       name = expression(paste("[Ind. km"^-2 * "]")),
-                       limits = dens_limits) +
-    reference_layers() +
-    geom_sf(data = owf, fill = NA, colour = "red", linetype = farm_lty) +
-    coord_map() +
-    labs(x = "Longitude", y = "Latitude") +
-    ggtitle(title) +
-    theme_bw(base_size = 14)
-}
+## PALETTE  "ylorrd" | "rocket" | "ylorbr" | "oranges" | "ylgnbu"
+PALETTE     <- "ylorbr"
+DENS_TRANS  <- "sqrt"
+OWF_COL     <- "black"          # con rampa cálida, el rojo deja de distinguirse
+DENS_BREAKS <- c(0, 0.5, 1, 2, 4, 8, 12)
 
+dens_fill <- function() {
+  brks <- DENS_BREAKS[DENS_BREAKS >= dens_limits[1] & DENS_BREAKS <= dens_limits[2]]
+  args <- list(name   = expression(paste("[Ind. km"^-2 * "]")),
+               limits = dens_limits, breaks = brks,
+               trans  = DENS_TRANS, na.value = "grey96")
+  if (PALETTE == "rocket")
+    do.call(scale_fill_viridis_c, c(args, list(option = "rocket", direction = -1)))
+  else
+    do.call(scale_fill_distiller,
+            c(args, list(direction = 1,
+                         palette = switch(PALETTE,
+                                          ylorrd = "YlOrRd", ylorbr = "YlOrBr",
+                                          oranges = "Oranges", ylgnbu = "YlGnBu"))))
+}
 ggsave(p_out("fig3_density_2001_2008.png"),
        density_map(df_before, "2001-2008", 2),
        width = 8.3, height = 5.5, dpi = 300)
@@ -318,7 +408,7 @@ ggsave(p_out("fig4_density_2017_2021.png"),
        density_map(df_after, "2017-2021", 1),
        width = 8.3, height = 5.5, dpi = 300)
 
-## Change map: red dashed = significant decrease, blue dashed = significant
+## Change map: solid = decrease, dashed = increase, one isoline per
 ## increase, grey solid = zero-effect contour.
 change_max <- max(abs(df_change$mean), na.rm = TRUE)
 
@@ -332,7 +422,26 @@ MAP_THRESHOLDS <- c(0.975, 0.95, 0.90, 0.85)
 df_change$p_decrease <- p_decrease
 df_change$p_increase <- 1 - p_decrease
 
-thr_labels <- paste0(format(MAP_THRESHOLDS * 100, trim = TRUE), "%")
+## Labelled as probabilities, NOT as percentages. "95%" would collide with
+## the 95% credible interval used to define the 0.975 zone, which is the
+## single most confusing thing a reader can meet in this analysis.
+## Written out explicitly rather than with format(): format() applies a common
+## width to the whole vector and would render 0.95 as "0.950", and
+## as.character() would render 0.90 as "0.9". Neither matches Table 2.
+thr_labels <- c("0.975", "0.95", "0.90", "0.85")
+stopifnot(length(thr_labels) == length(MAP_THRESHOLDS))
+
+## Isoline colours, dark to light with the threshold.
+##
+## The fill is a red-blue diverging scale, the OWF outlines are black, the
+## concentration area grey and the SPA green, which leaves purple as the only
+## hue that is not already carrying meaning. Dark to light also puts the
+## strongest line where the fill is most saturated: 0.975 is the innermost
+## contour, sitting on deep red, while 0.85 is the outermost and sits on
+## near-white. A reversed viridis ramp was used before and gave 0.975 a yellow
+## line on a red background - the least legible line was the one the paper
+## actually reports.
+THRESHOLD_COLOURS <- c("#3F007D", "#6A51A3", "#9E7FD0", "#C6A9E0")
 
 p_change <- ggplot() +
   geom_raster(data = df_change, aes(x = x, y = y, fill = mean)) +
@@ -346,11 +455,13 @@ p_change <- ggplot() +
                    colour = factor(after_stat(level), levels = MAP_THRESHOLDS),
                    linetype = "Increase"),
                breaks = MAP_THRESHOLDS, linewidth = 0.55) +
-  scale_colour_viridis_d(option = "plasma", end = 0.85, direction = -1,
-                         drop = FALSE, labels = thr_labels,
-                         name = "Posterior probability",
-                         guide = guide_legend(order = 2, override.aes =
-                                                list(linetype = "solid"))) +
+  scale_colour_manual(values = setNames(THRESHOLD_COLOURS,
+                                        as.character(MAP_THRESHOLDS)),
+                      drop = FALSE, labels = thr_labels,
+                      name = "P(change)",
+                      guide = guide_legend(order = 2, override.aes =
+                                             list(linetype = "solid",
+                                                  linewidth = 0.9))) +
   scale_linetype_manual(values = c(Decrease = "solid", Increase = "22"),
                         name = NULL,
                         guide = guide_legend(order = 3)) +
@@ -386,7 +497,7 @@ ggsave(p_out("fig5_change.png"), p_change,
 #  Two changes from the original. The affected component is selected
 #  automatically as the one adjacent to the cluster, instead of the
 #  hand-picked p[6] / p[3]; and the same routine is applied to the
-#  zero-effect contour as well as the 95% significance contour.
+#  zero contour as well as the high-evidence zone.
 
 ## Rasterise one column of an sf point grid.
 sf_to_rast <- function(x, column) {
@@ -416,7 +527,7 @@ affected_region <- function(r, owf_u) {
 ## UNITS. terra::distance() returns metres even when the CRS is in
 ## kilometres, so the result is divided by 1000 to keep every distance in
 ## this script in km. Sanity check: the northern cluster should come out at
-## roughly 7.5 km for the 95% significance contour.
+## roughly 7.5 km for the high-evidence zone.
 make_dist_raster <- function(cluster_owf, ext_sf, cellsize = DIST_CELL_KM) {
   e <- terra::ext(terra::vect(st_geometry(ext_sf)))
   r <- terra::rast(e, resolution = cellsize, crs = st_crs(ext_sf)$wkt, vals = 0)
@@ -464,9 +575,9 @@ effect_distances <- function(thr) {
 
 dist_all <- bind_rows(effect_distances(THR_SIGNIF), effect_distances(THR_ZERO)) %>%
   mutate(criterion = factor(
-    ifelse(threshold == THR_SIGNIF, "95% significance contour",
-                                    "Zero-effect contour"),
-    levels = c("95% significance contour", "Zero-effect contour")))
+    ifelse(threshold == THR_SIGNIF, CRIT_HIGH,
+                                    CRIT_ZERO),
+    levels = c(CRIT_HIGH, CRIT_ZERO)))
 
 ## ci_lo / ci_hi reproduce t.test(distance)$conf.int as used in the original
 ## script. Note that the contour cells are contiguous and strongly
@@ -529,7 +640,7 @@ write.csv(dist_tests, p_out("effect_distance_tests.csv"), row.names = FALSE)
 ## from the subtitle if they are reported in the text instead.
 
 fig6_data <- dist_all %>%
-  filter(criterion == "95% significance contour") %>%
+  filter(criterion == CRIT_HIGH) %>%
   mutate(area = factor(ifelse(cluster == "north", "North", "South"),
                        levels = c("North", "South")))
 
@@ -597,7 +708,7 @@ ggsave(p_out("fig6_effect_distance.png"), p_violin,
 #  posterior of the mean distance. North vs South is the paired difference
 #  within each draw.
 #
-#  Applies to the zero-effect contour only: the significance contour is a
+#  Applies to the zero contour only: the high-evidence zone is a
 #  property of the posterior, not of a single draw.
 
 posterior_displacement <- function(samples, owf_u, dist_rast, label) {
@@ -656,7 +767,7 @@ p_post <- ggplot(post_dist %>% filter(!is.na(mean_km)),
                  aes(x = mean_km, fill = cluster)) +
   geom_density(alpha = 0.5, colour = NA) +
   geom_vline(data = dist_summary %>%
-               filter(criterion == "95% significance contour"),
+               filter(criterion == CRIT_HIGH),
              aes(xintercept = mean_km, colour = cluster),
              linetype = 2, linewidth = 0.7, show.legend = FALSE) +
   scale_fill_manual(values = c(north = "#2166AC", south = "#B2182B"),
@@ -684,7 +795,7 @@ ggsave(p_out("fig7_zero_contour_posterior.png"), p_post,
 #
 #  and the affected zone at threshold t is { s : p(s) >= t }. Then
 #
-#      t = 0.975  is the 95% significance contour used in Fig. 6
+#      t = 0.975  is the high-evidence zone used in Fig. 7
 #      t = 0.50   is the zero contour
 #
 #  Reporting the series makes the trade-off explicit - how far the effect
@@ -965,15 +1076,50 @@ displaced_individuals <- function(thr, owf_u, label, criterion) {
 }
 
 displaced <- bind_rows(
-  displaced_individuals(THR_SIGNIF, owf_north_u, "north", "95% significance contour"),
-  displaced_individuals(THR_SIGNIF, owf_south_u, "south", "95% significance contour"),
-  displaced_individuals(THR_ZERO,   owf_north_u, "north", "Zero-effect contour"),
-  displaced_individuals(THR_ZERO,   owf_south_u, "south", "Zero-effect contour")
+  displaced_individuals(THR_SIGNIF, owf_north_u, "north", CRIT_HIGH),
+  displaced_individuals(THR_SIGNIF, owf_south_u, "south", CRIT_HIGH),
+  displaced_individuals(THR_ZERO,   owf_north_u, "north", CRIT_ZERO),
+  displaced_individuals(THR_ZERO,   owf_south_u, "south", CRIT_ZERO)
 )
 
 print(displaced, digits = 4)
 write.csv(displaced, p_out("displaced_individuals.csv"), row.names = FALSE)
 
+
+
+#------------
+#Density population stats before-after in the SPA area
+spa_stats <- function(d) {
+  pts <- st_as_sf(d, coords = c("x", "y"), crs = main_crs)
+  v <- d$mean[lengths(st_intersects(pts, spa_area)) > 0]
+  c(mean = mean(v, na.rm = TRUE), median = median(v, na.rm = TRUE),
+    max = max(v, na.rm = TRUE), cells = sum(!is.na(v)))
+}
+round(rbind(before = spa_stats(df_before), after = spa_stats(df_after)), 2)
+
+
+#---------
+zstat <- function(d, z) {
+  pts <- st_as_sf(d, coords = c("x","y"), crs = main_crs)
+  v <- d$mean[lengths(st_intersects(pts, z)) > 0]
+  c(mean = mean(v, na.rm=TRUE), median = median(v, na.rm=TRUE), max = max(v, na.rm=TRUE))
+}
+round(rbind(
+  spa_before   = zstat(df_before, spa_area),   spa_after   = zstat(df_after, spa_area),
+  mca_before   = zstat(df_before, conc_area),  mca_after   = zstat(df_after, conc_area),
+  study_before = c(mean(df_before$mean, na.rm=TRUE), median(df_before$mean, na.rm=TRUE), max(df_before$mean, na.rm=TRUE)),
+  study_after  = c(mean(df_after$mean,  na.rm=TRUE), median(df_after$mean,  na.rm=TRUE), max(df_after$mean,  na.rm=TRUE))
+), 2)
+
+
+# -------------
+
+#Inside North of helgoland
+unique(owf$cluster)
+
+hel <- owf %>% filter(cluster == "Helgoland") %>% st_geometry() %>% st_union() %>% st_sf()
+rbind(before = zstat(df_before, st_buffer(hel, 5)),
+      after  = zstat(df_after,  st_buffer(hel, 5)))   # 5 km alrededor, el CRS ya está en km
 
 # =============================================================================
 # 11. Session info

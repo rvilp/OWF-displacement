@@ -11,12 +11,21 @@ Manuscript: JEMA-D-25-08275, *Journal of Environmental Management*.
 ## Contents
 
 ```
-R/joint_likelihood_analysis.R       Full analysis
-R/impact_distance_and_habitat_loss.R   The 2022 distance calculation, for provenance
-R/diagnose_*.R                      Verification scripts (see below)
-data/                               Input data
-outputs/                            Figures, tables and cached fits (created on run)
+R/joint_likelihood_analysis.R          Full analysis: model, figures, distances
+R/model_validation.R                   DIC, WAIC, CPO and randomised PIT
+R/sensitivity_baseline_period.R        Appendix A.3
+R/sensitivity_baseline_effort_control.R  Appendix A.4
+R/sensitivity_after_period.R           Appendix A.5
+R/sensitivity_both_periods.R           Appendix A.6 and A.7
+R/fig_method_schematic.R               Manuscript Fig. 3
+R/fig_survey_effort.R                  Appendix Fig. A.1
+R/diagnose_*.R                         Verification scripts (see below)
+data/                                  Input data
+outputs/                               Figures, tables and cached fits (created on run)
 ```
+
+Run `joint_likelihood_analysis.R` first: it writes the cached model fits that
+the validation and sensitivity scripts read.
 
 ### Input data
 
@@ -57,6 +66,11 @@ in that system, so the CRS is assigned rather than transformed.
 - `inlabru` ≥ 2.12 (CRAN), `fmesher`, `sf`, `terra`, `ggplot2`, `dplyr`,
   `viridis`, `RColorBrewer`
 
+The results reported in the manuscript were produced with R 4.5.2, INLA 25.10.19,
+inlabru 2.13.0, fmesher 0.7.0, sf 1.1-0, terra 1.8-93, ggplot2 4.0.2 and
+dplyr 1.2.1. The full session is written to `outputs/sessionInfo.txt` on every
+run.
+
 ```r
 install.packages(c("inlabru", "fmesher", "sf", "terra", "ggplot2",
                    "dplyr", "viridis", "RColorBrewer"))
@@ -71,10 +85,15 @@ install.packages("INLA",
 Open `gavia-owf-displacement.Rproj` (or `setwd()` to the repository root) and
 source `R/joint_likelihood_analysis.R`.
 
-The model fits take hours and are cached under `outputs/`; delete
-`outputs/fit_*.rds` and `outputs/change_fit.rds` to refit. Predictions are always
-recomputed, so a re-run after changing the prediction geometry cannot return a
-stale result.
+The model fits are cached under `outputs/`, although they are not expensive:
+the mesh has 1000 nodes, so the joint latent field is roughly 2000-dimensional
+with a sparse precision over 2666 observations, and INLA fits it in seconds.
+A full run, predictions and figures included, is a matter of minutes. The cache file names
+carry `MODEL_TAG`, which is bumped whenever the model changes, so a formula
+change cannot silently pick up an old fit; delete
+`outputs/fit_*_<tag>.rds` and `outputs/change_fit_<tag>.rds` to force a refit
+anyway. Predictions are always recomputed, so a re-run after changing the
+prediction geometry cannot return a stale result.
 
 Posterior sampling is seeded through INLA (`seed = SEED` on `predict()` and
 `generate()`), not through `set.seed()`, which does not reach
@@ -90,15 +109,43 @@ effort (`area`) as exposure. The two periods enter a **single joint
 likelihood** sharing one latent spatial field:
 
 ```
-before:  log E[N] = spde_before(s) + Intercept              , E = area / c_det
-after:   log E[N] = spde_before(s) + spde_change(s) + Intercept_after , E = area
+before:  log E[N] = spde_before(s) + Intercept                       , E = area × d(m)
+after:   log E[N] = spde_before(s) + spde_change(s) + Intercept_after , E = area × d(m)
 ```
 
 `spde_change(s)` is therefore the additive log-scale contrast between periods,
 estimated within the joint posterior rather than by differencing two separate
 fits. Both fields use PC priors on the Matérn range and marginal standard
-deviation. `c_det` is the detection correction applied to the conventional
-visual surveys of the before period.
+deviation.
+
+### Survey technique
+
+`d(m)` is the detection rate of the technique that produced each observation,
+so that exposure is the area searched scaled by the fraction of birds present
+that the technique would have recorded. HiDef is the reference at 1.
+
+| Technique | log effect vs HiDef | `d(m)` |
+|---|---|---|
+| HiDef | 0 | 1.000 |
+| DAISI | −0.10 | 0.905 |
+| APEM | −0.40 | 0.670 |
+| Conventional (visual) | −0.22 | 0.803 |
+
+The log effects are the medians of Table A-1 of Vilela et al. (2021); the
+visual figure is what remains after the distance-sampling correction already
+applied in `NHAT`.
+
+They enter as a **known offset, not as a fitted coefficient**, because a fitted
+technique term is not identifiable in this design. The after period aggregates
+five years without a temporal term, and the techniques are segregated in both
+time and space: APEM and the visual surveys were flown only in 2017–2018; DAISI
+covers the north and the visual surveys the south, so the two never sample the
+same mesh node; only 14 of APEM's 130 observations fall on a node-year that
+HiDef also covered. Fitting the term returns technique confounded with year and
+region, and reverses the sign of the DAISI and APEM effects relative to the
+published values. Vilela et al. (2021) estimated them in a year-by-year
+spatiotemporal model, where technique is separated from when and where each
+technique was flown, so the estimate is taken from there.
 
 ## Displacement distances
 
@@ -106,10 +153,15 @@ The change field is summarised through the posterior probability of a decrease
 at each location, p(s) = P(δ(s) < 0), where δ(s) = log₁₀ exp(spde_change(s)).
 For a threshold *t*, the affected zone is A(t) = { s : p(s) ≥ t }, so that
 
-- *t* = 0.975 is the 95% significance contour, i.e. the upper limit of the 95%
-  credible interval lies below zero — a conservative lower bound on the extent
-  of the effect;
-- *t* = 0.50 is the zero contour.
+- *t* = 0.975 is the **high-evidence zone**: the whole 95% credible interval for
+  the change lies below zero — a conservative lower bound on the extent of the
+  effect;
+- *t* = 0.50 is the **zero contour**.
+
+Thresholds are written as probabilities (0.975, 0.95, 0.90) and never as
+percentages, because "95%" would then refer both to a relaxed threshold and to
+the width of the credible interval that defines the 0.975 zone. The credible
+interval appears only once, in the definition above.
 
 Measurement:
 
@@ -153,6 +205,7 @@ redistribution gains, and depends on where suitable receiving habitat lies.
 | `zero_contour_posterior_*.csv` | Posterior draws, summary and North–South contrast |
 | `effect_range_summary.csv`, `radial_profile.csv` | Radial summary |
 | `displaced_individuals.csv` | Abundance change within each affected zone |
+| `detection_offsets_applied.csv` | Detection rate applied to each technique, with effort by period |
 | `comparison_vs_original_tif.csv`, `distance_surface_comparison.csv`, `inla_mode_comparison.csv` | Verification against the previous version |
 | `sessionInfo.txt` | Package versions for the reproducibility statement |
 

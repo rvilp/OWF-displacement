@@ -20,6 +20,14 @@
 #  Costs one full refit of the joint model. Nothing already computed is
 #  overwritten: the classic fit is cached separately.
 #
+#  NOTE. This script deliberately keeps the pre-"m3" specification, with a
+#  single visual detection correction of 1/0.88 and no technique offset in
+#  the after period. That is intentional: the question here is what the
+#  change of computational mode does on its own, so everything else must be
+#  held at the setting used when the reference numbers above were produced.
+#  It is not the current model. See DETECTION in
+#  R/joint_likelihood_analysis.R for that.
+#
 #      source("R/diagnose_inla_mode.R")
 ###############################################################################
 

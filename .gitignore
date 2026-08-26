@@ -17,6 +17,16 @@ outputs/*.rds
 # ...except the input bundle, which is data, not a derived object.
 !data/diver_owf_data.RData
 
+# --- Scratch ------------------------------------------------------------------
+*.tmp
+outputs/*.tmp
+
+# --- Archive ------------------------------------------------------------------
+# Scripts kept locally but not part of the published analysis: the 2022
+# distance calculation, and the environmental-covariate work that is not used
+# in the manuscript. Nothing here is needed to reproduce a reported number.
+archive/
+
 # --- R session cruft ----------------------------------------------------------
 .Rhistory
 .Rapp.history
@@ -32,3 +42,17 @@ Thumbs.db
 inlabru/
 inlabru.zip
 .positai
+
+# --- Environmental covariate layers ------------------------------------------
+# Third-party EMODnet products and anything derived from them. Large, and
+# available from their own sources; see R/covariate_paths.R for the location
+# and R/download_emodnet_covariates.R for how to obtain them.
+covariates/
+data/bathymetry*.tif
+data/slope_region.tif
+data/substrate_folk5.gpkg
+data/euseamap_habitat.gpkg
+data/vessel_density.tif
+data/coastline.gpkg
+data/sst.tif
+data/chla.tif

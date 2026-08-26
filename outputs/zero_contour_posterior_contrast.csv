@@ -1,2 +1,2 @@
 "comparison","n_draws_usable","post_mean_diff_km","ci_lo_km","ci_hi_km","p_north_gt_south"
-"north - south (zero-effect contour)",1000,-6.88049873255853,-26.8476331440683,24.9740761650735,0.217
+"north - south (zero-effect contour)",10000,-7.8106819160895,-28.980810442424,23.3508191968096,0.1983

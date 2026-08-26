@@ -1,0 +1,6 @@
+"period","technique","detection","n","effort_km2"
+"before","conventional",0.802518797962478,942,57411.64098
+"after","APEM",0.670320046035639,130,1156.10387515
+"after","DAISI",0.90483741803596,470,7672.31177260142
+"after","HiDef",1,1020,20701.565559209
+"after","conventional",0.802518797962478,104,2240.881062
