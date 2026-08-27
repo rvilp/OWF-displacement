@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+title: >-
+  Diver (Gavia spp.) displacement around offshore wind farms in
+  the German Bight: analysis code and data
+message: >-
+  If you use this code or these data, please cite this archived
+  version together with the accompanying manuscript and with
+  Vilela et al. (2021), in which the 2001-2018 survey records
+  were first released.
+type: software
+authors:
+  - given-names: Raúl
+    family-names: Vilela
+    email: rvp@duck.com
+    affiliation: King Abdullah University of Science and Technology
+    # orcid: 'https://orcid.org/0000-0000-0000-0000'
+  # Add the remaining authors of the manuscript here, in the same
+  # order as on the title page, for example:
+  # - given-names: ...
+  #   family-names: Szostek
+  #   affiliation: ...
+repository-code: 'https://github.com/rvilp/OWF-displacement'
+version: v1.0.0
+doi: 10.5281/zenodo.22117556
+date-released: '2026-08-27'
+license: MIT
+license-url: 'https://github.com/rvilp/OWF-displacement/blob/main/LICENSE'
+keywords:
+  - offshore wind farms
+  - seabird displacement
+  - Gavia
+  - log-Gaussian Cox process
+  - INLA
+  - SPDE
+  - German Bight
+abstract: >-
+  Reproducible analysis of the redistribution of divers (Gavia
+  spp.) around offshore wind farms in the German North Sea,
+  comparing a before period (2001-2008) with an after period
+  (2017-2021) within a joint-likelihood log-Gaussian Cox process
+  fitted with INLA and SPDE. The repository contains the model
+  script, the sensitivity and validation analyses reported in the
+  appendix, the verification scripts, and the input data. Code is
+  released under MIT; the data in data/ are released under
+  CC BY 4.0, see data/LICENSE-DATA.md.

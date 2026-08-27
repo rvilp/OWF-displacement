@@ -1,5 +1,7 @@
 # Diver (*Gavia* spp.) displacement around offshore wind farms in the German Bight
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22117556.svg)](https://doi.org/10.5281/zenodo.22117556)
+
 Code and input data for the joint-likelihood Bayesian LGCP analysis of diver
 redistribution around offshore wind farms (OWFs) in the German North Sea,
 comparing a **before** period (2001–2008) and an **after** period (2017–2021).
