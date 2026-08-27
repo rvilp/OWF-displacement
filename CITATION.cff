@@ -12,33 +12,26 @@ authors:
   - given-names: Raúl
     family-names: Vilela
     email: raulvile@gmail.com
-    affiliation: King Abdullah University of Science and Technology
-    # orcid: 'https://orcid.org/0000-0002-5435-2015'
-
-   - given-names: Claudia
-     family-names: Burger
-     affiliation: BioConsult SH GmbH & Co. KG . Husum, 25813, Germany
-     
-    - given-names: Ansgar
-     family-names: Diederichs
-     affiliation: BioConsult SH GmbH & Co. KG . Husum, 25813, Germany
-     
-    - given-names: Lesley
-     family-names: Szostek
-     affiliation: IBL Umweltplanung GmbH, Oldenburg, 26122, Germany
-     
-    - given-names: Anika
-     family-names: Freund
-     affiliation: IBL Umweltplanung GmbH, Oldenburg, 26122, Germany
-     
-    - given-names: Alexander
-     family-names: Braasch
-     affiliation: IBL Umweltplanung GmbH, Oldenburg, 26122, Germany
-
-    - given-names: Georg
-     family-names: Nehls
-     affiliation: BioConsult SH GmbH & Co. KG . Husum, 25813, Germany     
-     
+    affiliation: 'King Abdullah University of Science and Technology'
+    orcid: 'https://orcid.org/0000-0002-5435-2015'
+  - given-names: Claudia
+    family-names: Burger
+    affiliation: 'BioConsult SH GmbH & Co. KG, Husum, 25813, Germany'
+  - given-names: Ansgar
+    family-names: Diederichs
+    affiliation: 'BioConsult SH GmbH & Co. KG, Husum, 25813, Germany'
+  - given-names: Lesley
+    family-names: Szostek
+    affiliation: 'IBL Umweltplanung GmbH, Oldenburg, 26122, Germany'
+  - given-names: Anika
+    family-names: Freund
+    affiliation: 'IBL Umweltplanung GmbH, Oldenburg, 26122, Germany'
+  - given-names: Alexander
+    family-names: Braasch
+    affiliation: 'IBL Umweltplanung GmbH, Oldenburg, 26122, Germany'
+  - given-names: Georg
+    family-names: Nehls
+    affiliation: 'BioConsult SH GmbH & Co. KG, Husum, 25813, Germany'
 repository-code: 'https://github.com/rvilp/OWF-displacement'
 version: v1.0.0
 doi: 10.5281/zenodo.22117556
